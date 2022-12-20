@@ -1,55 +1,65 @@
 import './css/styles.css';
-import { Notify } from 'notiflix/build/notiflix-notify-aio';
-import throttle from 'lodash.throttle';
+import { fetchCountries } from '../src/fetchCountries';
 import debounce from 'lodash.debounce';
-import { fetchCountries } from './fetchCountries';
+import { Notify } from 'notiflix';
 
 const DEBOUNCE_DELAY = 300;
 const TIMEOUT_NOTIFICATION = 4000;
 
 const refs = {
-  searchField: document.getElementById('search-box'),
-  countryList: document.querySelector('.country-list'),
-  countryInfo: document.querySelector('.country-info'),
+  inputEl: document.querySelector('#search-box'),
+  countriesListEl: document.querySelector('.country-list'),
+  infoAboutCountryEl: document.querySelector('.country-info'),
 };
 
-refs.searchField.addEventListener('input', debounce(onSearch, DEBOUNCE_DELAY));
+refs.inputEl.addEventListener(
+  'input',
+  debounce(onSearchCountry, DEBOUNCE_DELAY)
+);
 
-function onSearch(evt) {
+/**function */
+
+function onSearchCountry(evt) {
   const valueInput = evt.target.value.trim();
-  if (valueInput.length === 0) {
-    Notify.info('Please entering some symbol for searching', {
+
+  if (valueInput.length === 1) {
+    Notify.warning('At least 2 letters must be entered to search', {
       timeout: TIMEOUT_NOTIFICATION,
     });
-    refs.countryList.innerHTML = '';
-    refs.countryInfo.innerHTML = '';
-    refs.searchField.removeEventListener('input', evt);
+    return;
+  } else if (valueInput.length === 0) {
+    Notify.info('Please start entering some country for searching', {
+      timeout: TIMEOUT_NOTIFICATION,
+    });
+    refs.countriesListEl.innerHTML = '';
+    refs.infoAboutCountryEl.innerHTML = '';
+    refs.inputEl.removeEventListener('input', evt);
     return;
   }
 
   fetchCountries(valueInput)
-    .then(createdCountryList)
+    .then(onRenderCountriesList)
     .catch(error => {
       Notify.failure('Oops, there is no country with that name', {
         timeout: TIMEOUT_NOTIFICATION,
       });
-      refs.countryList.innerHTML = '';
-      refs.countryInfo.innerHTML = '';
+      refs.countriesListEl.innerHTML = '';
+      refs.infoAboutCountryEl.innerHTML = '';
     });
 }
 
-function createdCountryList(countries) {
+function onRenderCountriesList(countries) {
   const numberCountriesFound = countries.length;
 
   const markupCountriesList = countries
     .map(
-      ({ flags, name }) =>
-        `<li class="country"><img src="${flags.svg}"
-      alt="Flag of ${name.official}" width="50"/>
-      <h1>${name.official}</h1></li>`
+      ({ name: { official }, flags: { svg } }) =>
+        `<li class="country"><img src="${svg}"
+      alt="Flag of ${official}" />
+      <h1>${official}</h1></li>`
     )
     .join('');
-  refs.countryList.innerHTML = markupCountriesList;
+  refs.countriesListEl.innerHTML = markupCountriesList;
 
   if (numberCountriesFound === 1) {
     const bigRenderCountry = document.querySelector('.country');
@@ -58,24 +68,23 @@ function createdCountryList(countries) {
     const markupInfoAboutCountry = countries
       .map(
         ({ capital, population, languages }) =>
-          `<p class='country__title'><span>Capital:</span> ${capital}</p>
-         <p class='country__info'><span>Population:</span> ${population}</p>
-         <p class ='country__info'><span>Languages: </span>${Object.values(
-           languages
-         )}</p>`
+          `<p><b>Capital: </b>${capital}</p>
+         <p><b>Population: </b>${population}</p>
+         <p><b>Languages: </b>${Object.values(languages)}</p>`
       )
       .join('');
-    refs.countryInfo.innerHTML = markupInfoAboutCountry;
+    refs.infoAboutCountryEl.innerHTML = markupInfoAboutCountry;
     return;
   }
 
   if (numberCountriesFound > 10) {
-    Notify.info('Too many matches found. Please enter a more specific name.', {
-      timeout: TIMEOUT_NOTIFICATION,
-    });
-    refs.countryList.innerHTML = '';
-    refs.countryInfo.innerHTML = '';
+    Notify.warning(
+      'Too many matches found. Please enter a more specific name',
+      {
+        timeout: TIMEOUT_NOTIFICATION,
+      }
+    );
   }
 
-  refs.countryInfo.innerHTML = '';
+  refs.infoAboutCountryEl.innerHTML = '';
 }
